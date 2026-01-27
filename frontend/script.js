@@ -136,17 +136,10 @@ function parseToulminStructure(analysis) {
     }
 
     // Extract sources - handle both formats: [1] Title - URL and [1] Title (no URL)
-    // Sources are typically at the end after all Toulmin sections
     const sources = [];
     let analysisText = analysis;
 
-    // Split by known Toulmin section headers to separate citations
-    const toulminSectionPattern = /^(CLAIM:|GROUNDS:|WARRANT:|BACKING:|QUALIFIER:|REBUTTAL:|\d+\.\s*(CLAIM|GROUNDS|WARRANT|BACKING|QUALIFIER|REBUTTAL))/mi;
-
-    // Find where the last Toulmin section ends
-    const sections = analysisText.split(toulminSectionPattern);
-
-    // Look for citations after the last rebuttal section
+    // Look for citations (typically at the end after all Toulmin sections)
     // Format 1: [1] Title - URL
     const sourceWithUrlRegex = /\[(\d+)\]\s*([^\[\n]+?)\s*-\s*(https?:\/\/[^\s]+)/g;
     // Format 2: [1] Title (no URL, ends with period or newline)
