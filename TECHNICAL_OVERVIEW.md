@@ -2,9 +2,12 @@
 
 ## Executive Summary
 
-The Argument Decomposer is a multi-agent AI system that demonstrates how different ethical reasoning frameworks approach the same problem. It serves as both an educational tool and a proof-of-concept for parallel AI agent orchestration, showing how complex analytical tasks can be decomposed into multiple specialized perspectives that execute concurrently.
+The Argument Decomposer is a multi-agent AI system that demonstrates how different ethical reasoning frameworks approach the same problem AND how they challenge each other in debate. It serves as both an educational tool and a proof-of-concept for multi-round AI agent orchestration, showing how complex analytical tasks can be decomposed into multiple specialized perspectives that execute concurrently and interact dynamically.
 
-**Key Innovation**: Rather than providing a single AI-generated "answer," this system demonstrates how four distinct philosophical frameworks (Utilitarian, Deontological, Practical, and Stakeholder) reason about ethical questions, making the logical process transparent and analyzable.
+**Key Innovation**: Rather than providing a single AI-generated "answer," this system demonstrates how four distinct philosophical frameworks (Utilitarian, Deontological, Practical, and Stakeholder) reason about ethical questions, making the logical process transparent and analyzable. The optional Cross-Examination feature extends this to show how frameworks identify weaknesses in each other's arguments and defend their positions—a unique debate preparation tool.
+
+**Current Version**: v1.2 (with Cross-Examination feature)
+**Status**: Production-ready for Chrome, educational use
 
 ---
 
@@ -58,6 +61,19 @@ The Argument Decomposer is a multi-agent AI system that demonstrates how differe
 - No database, no message queue, no complex infrastructure
 
 **Why This Matters**: Demonstrates that sophisticated AI applications don't require heavy infrastructure—modern async patterns handle concurrency elegantly.
+
+### 5. Multi-Round AI Debates Are Feasible and Educational
+
+**Proof Point**: AI agents can engage in multi-round debates (challenge and defense) while maintaining framework fidelity and producing educationally valuable interactions.
+
+**Evidence**:
+- Cross-Examination feature adds 2 debate rounds after initial analysis
+- Round 2: 12 parallel challenges (each of 4 agents challenges 3 others)
+- Round 3: 4 parallel defense sets (each agent defends against 3 challenges)
+- Total time: 60-90 seconds for complete debate (parallel execution)
+- Agents identify logical weaknesses and defend positions authentically
+
+**Why This Matters**: Proves that AI-to-AI debate systems are not just theoretical—they're implementable, performant, and generate insights humans can learn from. This pattern applies to any domain requiring multi-perspective analysis with critical evaluation.
 
 ---
 
@@ -131,6 +147,24 @@ Frontend (script.js: parsing & rendering)
 - Application startup logs environment configuration
 
 **Impact**: Maintainers can debug issues, users don't see internal implementation details, and the system degrades gracefully.
+
+### 6. Dynamic Multi-Round Debate System
+
+**Achievement**: Cross-Examination feature enables agents to challenge each other and defend their positions, creating a dynamic debate.
+
+**How It Works**:
+- **Round 1**: Initial 4-perspective analysis (10-30 seconds)
+- **Round 2**: Each agent identifies weakest point in other 3 frameworks and poses challenging questions (12 challenges total, ~30 seconds)
+- **Round 3**: Each agent defends against 3 challenges received (~30 seconds)
+- **Total**: Optional 60-90 second debate after initial analysis
+
+**Technical Implementation**:
+- Two new orchestration functions: `generate_challenge()` and `generate_defense()`
+- Parallel execution of all challenges in Round 2, all defenses in Round 3
+- Expandable UI sections show challenges posed and defenses offered
+- Maintains stateless architecture (frontend stores Round 1 results)
+
+**Impact**: Users see how frameworks attack each other's logic and defend under pressure—invaluable for debate preparation, understanding framework limitations, and developing critical thinking skills. This transforms the tool from passive analysis to active intellectual combat.
 
 ---
 
@@ -295,6 +329,64 @@ Frontend (script.js: parsing & rendering)
 5. Added cache-busting to CSS link
 
 **Result**: Optimal viewing experience across devices
+
+### Phase 4: Cross-Examination Feature (Multi-Round Debate)
+
+**Goal**: Enable agents to challenge each other and defend their positions for debate preparation
+
+**Implementation**:
+
+**Backend (agents.py)**:
+1. **`generate_challenge()`**: One agent identifies weakest point in another's argument and poses challenging question
+2. **`generate_defense()`**: Agent defends against multiple challenges received from other frameworks
+3. **`cross_examine()`**: Orchestrates two-round debate with parallel execution
+   - Round 2: All challenges generated in parallel (12 total)
+   - Round 3: All defenses generated in parallel (4 sets)
+   - Overall timeout: 60 seconds
+
+**Backend (main.py)**:
+1. New POST `/cross-examine` endpoint
+2. Pydantic models: `CrossExamRequest`, `CrossExamResponse`, `ChallengeResponse`, `DefenseResponse`
+3. Accepts initial analyses from Round 1, returns challenges and defenses
+
+**Frontend (script.js)**:
+1. Store initial analyses globally after Round 1
+2. Add "Start Cross-Examination" button after results
+3. Call `/cross-examine` endpoint on button click
+4. Display expandable sections for challenges and defenses
+5. Toggle expand/collapse with smooth animations
+
+**Frontend (style.css)**:
+1. Button styling (dark theme, prominent placement)
+2. Expandable section headers (clickable)
+3. Challenge/defense formatting (clear visual hierarchy)
+4. Smooth collapse/expand animations
+
+**Prompt Engineering**:
+- Round 2: "Identify SINGLE WEAKEST point and pose ONE challenging question"
+- Round 3: "Address each challenge directly, acknowledge valid critiques, defend position"
+- Emphasis on intellectual honesty and framework fidelity
+
+**Result**:
+- ~400 lines of new code (200 backend, 200 frontend)
+- 20 total API calls per complete session (4 initial + 16 cross-exam)
+- 70-120 seconds total time (10-30s initial + 60-90s debate)
+- Cost: ~$0.13-0.26 per complete session
+
+### Phase 5: Bug Fixes & Stabilization
+
+**Critical Bugs Fixed**:
+1. **Duplicate const declaration** (commit a4bf201): JavaScript syntax error breaking Chrome
+2. **Sources parsing bug** (commit 6342431): Citations without URLs not handled, Toulmin text bleeding into sources
+3. **Safari caching** (commit 6342431): Aggressive caching prevented cross-exam button from appearing
+
+**Stabilization**:
+- Improved citation extraction with dual-pattern regex (with/without URLs)
+- Added cache-control headers for development
+- Version bumping (v=5) for cache-busting
+- Comprehensive error documentation and testing procedures
+
+**Result**: Chrome fully functional, Safari issues deferred (Chrome-first strategy)
 
 ---
 
@@ -508,12 +600,14 @@ Frontend (script.js: parsing & rendering)
 ### For Professionals (Law, Medicine, Policy, Business)
 
 **Why Use It**:
-- Rapid stakeholder analysis (who's affected and how)
-- Risk assessment from multiple angles
-- Anticipate objections before they arise
-- Document reasoning for decisions (audit trail)
+- **Debate Preparation**: Use Cross-Examination to see how opponents will attack your arguments
+- **Stakeholder Analysis**: Understand who's affected and how (Stakeholder perspective)
+- **Risk Assessment**: Evaluate from multiple angles before deciding
+- **Anticipate Objections**: Cross-Examination shows exactly what counterarguments to expect
+- **Document Reasoning**: Create audit trail of decision-making process
+- **Critical Evaluation**: See how your position holds up under sustained critique
 
-**Value Proposition**: "See all perspectives before making high-stakes decisions"
+**Value Proposition**: "Prepare for debates, anticipate objections, and see all perspectives before making high-stakes decisions"
 
 ### For Researchers & Developers
 
@@ -631,57 +725,130 @@ Frontend (script.js: parsing & rendering)
 
 ### Performance Characteristics
 
+**Initial Analysis (Round 1)**:
 - **Latency**: 10-30 seconds for 4-perspective analysis (network dependent)
+- **API Calls**: 4 (one per perspective)
+- **Cost**: ~$0.04-0.08 per analysis
+
+**Cross-Examination (Rounds 2 & 3)** - Optional:
+- **Latency**: 60-90 seconds for complete debate
+- **API Calls**: 16 (12 challenges + 4 defense sets)
+- **Cost**: ~$0.09-0.18 per debate
+
+**Complete Session** (all 3 rounds):
+- **Total Latency**: 70-120 seconds
+- **Total API Calls**: 20 (4 initial + 12 challenges + 4 defenses)
+- **Total Cost**: ~$0.13-0.26
 - **Throughput**: Limited by API rate limits, not application architecture
 - **Scalability**: Stateless design scales horizontally (add more servers)
 - **Resource Usage**: Minimal (async patterns, no heavy processing)
 
 ### Architecture Pattern Demonstrated
 
-**Pattern Name**: Configuration-Driven Multi-Agent Orchestration
+**Pattern Name**: Configuration-Driven Multi-Agent Orchestration with Multi-Round Debate
 
-**Components**:
+**Core Components**:
 1. Agent Registry (AGENT_CONFIGS)
 2. Agent Factory (create_perspective_analysis)
 3. Orchestrator (analyze_question with asyncio.gather)
-4. API Gateway (FastAPI endpoints)
-5. Presentation Layer (vanilla JS frontend)
+4. API Gateway (FastAPI endpoints: /analyze, /cross-examine)
+5. Presentation Layer (vanilla JS frontend with expandable sections)
 
-**Reusability**: This pattern applies to any "analyze X from multiple perspectives Y" problem domain.
+**Debate Components** (Cross-Examination):
+6. Challenge Generator (generate_challenge)
+7. Defense Generator (generate_defense)
+8. Debate Orchestrator (cross_examine with multi-round parallel execution)
+9. Dynamic UI (expandable challenges/defenses sections)
+
+**Reusability**: This pattern applies to any "analyze X from multiple perspectives Y, then have perspectives critique each other" problem domain. Extends beyond static analysis to dynamic intellectual combat.
 
 ---
 
-## Conclusion: A Foundation for Multi-Perspective AI
+## Conclusion: A Foundation for Multi-Perspective AI with Dynamic Debate
 
-The Argument Decomposer demonstrates that AI systems can move beyond single-perspective outputs to embrace genuine analytical diversity. By maintaining distinct reasoning frameworks while optimizing for performance and usability, it proves that sophisticated multi-agent systems are both practical and valuable.
+The Argument Decomposer demonstrates that AI systems can move beyond single-perspective outputs to embrace genuine analytical diversity AND dynamic intellectual combat. By maintaining distinct reasoning frameworks while optimizing for performance and usability, it proves that sophisticated multi-agent and multi-round debate systems are both practical and valuable.
 
 **Key Takeaways**:
 
-1. **Technical Feasibility**: Multi-agent systems work with existing tools (FastAPI, asyncio, Claude API)
+1. **Technical Feasibility**: Multi-agent systems with multi-round debates work with existing tools (FastAPI, asyncio, Claude API)
 2. **Architectural Elegance**: Configuration-driven design enables extensibility without complexity
-3. **Educational Value**: Transparency in reasoning teaches critical thinking
+3. **Educational Value**: Transparency in reasoning teaches critical thinking; debates teach how to identify weaknesses and defend positions
 4. **Real-World Applicability**: Pattern extends to law, medicine, policy, business, and beyond
-5. **Future-Proof Design**: Modular architecture adapts to new frameworks and use cases
+5. **Future-Proof Design**: Modular architecture adapts to new frameworks, debate formats, and use cases
+6. **Debate Innovation**: Proves AI-to-AI debates are feasible, performant, and educationally valuable
 
-This project serves as both a working educational tool and a reference implementation for developers building the next generation of multi-perspective AI systems.
+**What's Unique**:
+- Not just multi-perspective analysis, but multi-round debate
+- Agents maintain framework fidelity while attacking others' logic
+- Educational tool that prepares users for real debates by showing counterarguments
+- Demonstrates that AI can teach critical thinking, not just provide answers
+
+This project serves as both a working educational tool and a reference implementation for developers building the next generation of multi-perspective AI systems with dynamic debate capabilities.
 
 ---
 
 ## Repository & Resources
 
 **GitHub**: https://github.com/udirno/argument-decomposer
-**Current Version**: 1.1 (with refactoring and UI improvements)
-**License**: (Specify your license)
-**Tech Stack**: Python 3.12+, FastAPI, Anthropic Claude API, Vanilla JavaScript, HTML5/CSS3
+
+**Current Version**: v1.2 (with Cross-Examination feature)
+
+**Status**:
+- ✅ Production-ready for Chrome
+- ✅ Educational use
+- ⚠️ Safari support deferred (Chrome-first strategy)
+
+**Latest Features**:
+- Multi-round AI debate (Cross-Examination)
+- 4 ethical frameworks with authentic reasoning
+- Parallel execution (60-90 seconds for complete debate)
+- Expandable UI sections for challenges and defenses
+- Clean citation parsing
+- Production-grade error handling and logging
+
+**Tech Stack**:
+- Backend: Python 3.12+, FastAPI, Anthropic Claude API (Sonnet 4)
+- Frontend: Vanilla JavaScript, HTML5, CSS3 (no frameworks)
+- Architecture: Async/await throughout, stateless design
+- Infrastructure: Single server, no database required
+
+**Performance**:
+- 20 API calls per complete session (4 + 16)
+- 70-120 seconds total time
+- ~$0.13-0.26 cost per complete analysis with debate
+- Parallel execution for optimal speed
 
 **For Blog Post Context**: This document provides technical depth for understanding what the project achieves, how it was built, and why it matters. Focus blog content on:
-- The "why" (educational value, transparency in AI)
-- The experience (what users learn from seeing multiple perspectives)
-- The implications (future of multi-agent systems)
+- The "why" (educational value, transparency in AI, debate preparation)
+- The experience (what users learn from seeing multiple perspectives AND watching them debate)
+- The Cross-Examination feature (unique innovation showing AI-to-AI intellectual combat)
+- The implications (future of multi-agent systems, AI debate tools)
 - Technical highlights as proof points, not primary focus
 
 **Key Messaging for Blog**:
-- AI that teaches thinking, not just provides answers
-- Multiple perspectives reveal complexity rather than hiding it
-- Open-source foundation for multi-agent applications
-- Educational tool with professional applications
+- **Primary Hook**: "AI that teaches you to win debates by showing you all counterarguments"
+- **Secondary Hook**: "Watch four ethical frameworks battle it out over your question"
+- **Educational Angle**: Multiple perspectives reveal complexity; debates teach critical thinking
+- **Innovation**: First tool that shows AI agents challenging each other's logic
+- **Practical Value**: Debate preparation, understanding framework limitations, anticipating objections
+- **Technical Achievement**: Multi-round AI orchestration with 20 parallel API calls in 2 minutes
+
+**Suggested Blog Structure**:
+1. **Opening**: Personal story about losing a debate or being surprised by a counterargument
+2. **Problem**: How do you prepare for debates when you can't see all angles?
+3. **Solution**: Show the tool in action - initial analysis THEN cross-examination
+4. **Demo**: Walk through a controversial question (autonomous vehicles, etc.)
+5. **The Magic**: Explain how agents attack each other's weakest points
+6. **Technical Marvel**: Brief mention of architecture (20 API calls, parallel execution, 2 minutes)
+7. **Educational Value**: What you learn from watching frameworks debate
+8. **Use Cases**: Debate prep, philosophy education, policy analysis, critical thinking training
+9. **Future**: Where multi-agent debate systems could go
+10. **CTA**: Try it yourself, contribute on GitHub, extend the architecture
+
+**What Makes This Special for Blog**:
+- It's not just another "AI analysis tool" - it's an AI DEBATE system
+- Visual drama: frameworks attacking and defending
+- Practical application: actual debate preparation
+- Educational: teaches HOW to think critically, not just WHAT to think
+- Open source: readers can extend it
+- Novel: first of its kind (multi-round AI agent debates)
