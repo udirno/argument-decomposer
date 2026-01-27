@@ -134,24 +134,49 @@ function parseToulminStructure(analysis) {
     if (!analysis) {
         return { structuredContent: '<p>No analysis available.</p>', sources: null };
     }
-    
-    // Extract sources first (they're at the end, formatted as [1] Title - URL)
-    const sourceRegex = /\[(\d+)\]\s*([^-]+)\s*-\s*(https?:\/\/[^\s]+)/g;
+
+    // Extract sources - handle both formats: [1] Title - URL and [1] Title (no URL)
+    // Sources are typically at the end after all Toulmin sections
     const sources = [];
-    let sourceMatch;
     let analysisText = analysis;
-    
-    // Find all sources
-    while ((sourceMatch = sourceRegex.exec(analysis)) !== null) {
+
+    // Split by known Toulmin section headers to separate citations
+    const toulminSectionPattern = /^(CLAIM:|GROUNDS:|WARRANT:|BACKING:|QUALIFIER:|REBUTTAL:|\d+\.\s*(CLAIM|GROUNDS|WARRANT|BACKING|QUALIFIER|REBUTTAL))/mi;
+
+    // Find where the last Toulmin section ends
+    const sections = analysisText.split(toulminSectionPattern);
+
+    // Look for citations after the last rebuttal section
+    // Format 1: [1] Title - URL
+    const sourceWithUrlRegex = /\[(\d+)\]\s*([^\[\n]+?)\s*-\s*(https?:\/\/[^\s]+)/g;
+    // Format 2: [1] Title (no URL, ends with period or newline)
+    const sourceWithoutUrlRegex = /\[(\d+)\]\s*([^\[\n]+?)\.?\s*$/gm;
+
+    let sourceMatch;
+
+    // First try to match sources with URLs
+    while ((sourceMatch = sourceWithUrlRegex.exec(analysis)) !== null) {
         sources.push({
             number: sourceMatch[1],
             title: sourceMatch[2].trim(),
             url: sourceMatch[3]
         });
     }
-    
-    // Remove sources from analysis text
-    analysisText = analysisText.replace(sourceRegex, '').trim();
+
+    // If no sources with URLs found, try sources without URLs
+    if (sources.length === 0) {
+        while ((sourceMatch = sourceWithoutUrlRegex.exec(analysis)) !== null) {
+            sources.push({
+                number: sourceMatch[1],
+                title: sourceMatch[2].trim(),
+                url: null
+            });
+        }
+    }
+
+    // Remove sources from analysis text (both patterns)
+    analysisText = analysisText.replace(sourceWithUrlRegex, '').trim();
+    analysisText = analysisText.replace(sourceWithoutUrlRegex, '').trim();
     
     // Parse Toulmin sections
     const sections = {
@@ -193,11 +218,17 @@ function parseToulminStructure(analysis) {
     // Format sources
     let sourcesHTML = '';
     if (sources.length > 0) {
-        sourcesHTML = sources.map(source => 
-            `<div class="source-item">
-                <a href="${source.url}" target="_blank" rel="noopener noreferrer" class="source-link">${source.title}</a>
-            </div>`
-        ).join('');
+        sourcesHTML = sources.map(source => {
+            if (source.url) {
+                return `<div class="source-item">
+                    <a href="${source.url}" target="_blank" rel="noopener noreferrer" class="source-link">${source.title}</a>
+                </div>`;
+            } else {
+                return `<div class="source-item">
+                    <span class="source-text">${source.title}</span>
+                </div>`;
+            }
+        }).join('');
     }
     
     return {

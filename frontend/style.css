@@ -260,6 +260,11 @@ header h1 {
     color: #a00000;
 }
 
+.source-text {
+    color: #666;
+    font-style: italic;
+}
+
 .status-error {
     color: #c50000;
     font-weight: 400;
