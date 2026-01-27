@@ -7,6 +7,10 @@ const loadingIndicator = document.getElementById('loadingIndicator');
 const errorMessage = document.getElementById('errorMessage');
 const resultsContainer = document.getElementById('resultsContainer');
 
+// Store initial analysis for cross-examination
+let currentQuestion = '';
+let initialAnalyses = [];
+
 // Perspective descriptions
 const perspectiveDescriptions = {
     'Utilitarian': 'Evaluates actions based on their consequences, focusing on maximizing overall happiness and minimizing suffering for the greatest number of people.',
@@ -45,8 +49,14 @@ questionForm.addEventListener('submit', async (e) => {
         }
         
         const data = await response.json();
+
+        // Store for cross-examination
+        currentQuestion = question;
+        initialAnalyses = data.perspectives;
+
         displayResults(data.perspectives);
-        
+        addCrossExamButton();
+
     } catch (error) {
         console.error('Error:', error);
         showError(`Failed to analyze question: ${error.message}`);
@@ -231,19 +241,188 @@ function createToulminSection(label, content) {
 
 function formatPlainText(text) {
     if (!text) return '';
-    
+
     // Clean text first
     text = cleanText(text);
-    
+
     // Split by double newlines for paragraphs
     const paragraphs = text.split(/\n\n+/).filter(p => p.trim());
-    
+
     if (paragraphs.length > 1) {
         return paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
     }
-    
+
     // Single paragraph or no double newlines - split by single newlines
     const lines = text.split('\n').filter(l => l.trim());
     return lines.map(line => `<p>${line.trim()}</p>`).join('');
+}
+
+// Cross-Examination Functions
+
+function addCrossExamButton() {
+    // Check if button already exists
+    if (document.getElementById('crossExamBtn')) {
+        return;
+    }
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'cross-exam-button-container';
+    buttonContainer.id = 'crossExamBtnContainer';
+
+    const button = document.createElement('button');
+    button.id = 'crossExamBtn';
+    button.className = 'cross-exam-btn';
+    button.textContent = 'Start Cross-Examination';
+    button.onclick = startCrossExamination;
+
+    const description = document.createElement('p');
+    description.className = 'cross-exam-description';
+    description.textContent = 'See how each framework challenges the others and defends its position';
+
+    buttonContainer.appendChild(button);
+    buttonContainer.appendChild(description);
+
+    resultsContainer.parentNode.insertBefore(buttonContainer, resultsContainer.nextSibling);
+}
+
+async function startCrossExamination() {
+    const button = document.getElementById('crossExamBtn');
+    const originalText = button.textContent;
+
+    button.disabled = true;
+    button.textContent = 'Agents are debating...';
+    hideError();
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/cross-examine`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                question: currentQuestion,
+                initial_analyses: initialAnalyses
+            }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+            throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        displayCrossExamination(data.perspectives);
+
+        // Hide the button after successful cross-examination
+        document.getElementById('crossExamBtnContainer').style.display = 'none';
+
+    } catch (error) {
+        console.error('Error:', error);
+        showError(`Failed to conduct cross-examination: ${error.message}`);
+        button.disabled = false;
+        button.textContent = originalText;
+    }
+}
+
+function displayCrossExamination(crossExamResults) {
+    // Add cross-examination sections to each existing perspective card
+    const cards = resultsContainer.querySelectorAll('.perspective-card');
+
+    crossExamResults.forEach((result, index) => {
+        if (index >= cards.length) return;
+
+        const card = cards[index];
+        const crossExamSection = createCrossExamSection(result);
+        card.appendChild(crossExamSection);
+    });
+}
+
+function createCrossExamSection(crossExamData) {
+    const section = document.createElement('div');
+    section.className = 'cross-exam-section';
+
+    // Challenges section
+    const challengesDiv = document.createElement('div');
+    challengesDiv.className = 'cross-exam-subsection';
+
+    const challengesHeader = document.createElement('div');
+    challengesHeader.className = 'cross-exam-header';
+    challengesHeader.innerHTML = `
+        <span class="cross-exam-title">Challenges to Other Frameworks</span>
+        <span class="expand-icon">▼</span>
+    `;
+    challengesHeader.onclick = () => toggleSection(challengesHeader);
+
+    const challengesContent = document.createElement('div');
+    challengesContent.className = 'cross-exam-content collapsed';
+
+    if (crossExamData.challenges && crossExamData.challenges.length > 0) {
+        crossExamData.challenges.forEach(challenge => {
+            const challengeItem = document.createElement('div');
+            challengeItem.className = 'challenge-item';
+            challengeItem.innerHTML = `
+                <div class="challenge-target">→ To ${challenge.target_perspective}:</div>
+                <div class="challenge-question">${formatPlainText(challenge.question)}</div>
+            `;
+            challengesContent.appendChild(challengeItem);
+        });
+    } else {
+        challengesContent.innerHTML = '<p>No challenges generated.</p>';
+    }
+
+    challengesDiv.appendChild(challengesHeader);
+    challengesDiv.appendChild(challengesContent);
+
+    // Defenses section
+    const defensesDiv = document.createElement('div');
+    defensesDiv.className = 'cross-exam-subsection';
+
+    const defensesHeader = document.createElement('div');
+    defensesHeader.className = 'cross-exam-header';
+    defensesHeader.innerHTML = `
+        <span class="cross-exam-title">Defense Against Critiques</span>
+        <span class="expand-icon">▼</span>
+    `;
+    defensesHeader.onclick = () => toggleSection(defensesHeader);
+
+    const defensesContent = document.createElement('div');
+    defensesContent.className = 'cross-exam-content collapsed';
+
+    if (crossExamData.defenses && crossExamData.defenses.length > 0) {
+        crossExamData.defenses.forEach(defense => {
+            const defenseItem = document.createElement('div');
+            defenseItem.className = 'defense-item';
+            defenseItem.innerHTML = `
+                <div class="defense-against">← Against ${defense.against_perspective}:</div>
+                <div class="defense-response">${formatPlainText(defense.response)}</div>
+            `;
+            defensesContent.appendChild(defenseItem);
+        });
+    } else {
+        defensesContent.innerHTML = '<p>No defenses generated.</p>';
+    }
+
+    defensesDiv.appendChild(defensesHeader);
+    defensesDiv.appendChild(defensesContent);
+
+    section.appendChild(challengesDiv);
+    section.appendChild(defensesDiv);
+
+    return section;
+}
+
+function toggleSection(header) {
+    const content = header.nextElementSibling;
+    const icon = header.querySelector('.expand-icon');
+
+    if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        content.classList.add('expanded');
+        icon.textContent = '▲';
+    } else {
+        content.classList.add('collapsed');
+        content.classList.remove('expanded');
+        icon.textContent = '▼';
+    }
 }
 

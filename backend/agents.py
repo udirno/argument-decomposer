@@ -196,3 +196,284 @@ async def analyze_question(question: str) -> List[Dict[str, str]]:
     except asyncio.TimeoutError:
         logger.error(f"Analysis timed out after {ORCHESTRATION_TIMEOUT} seconds")
         raise ValueError(f"Analysis took too long. Please try again with a simpler question.")
+
+
+async def generate_challenge(
+    perspective_name: str,
+    target_perspective_name: str,
+    own_analysis: str,
+    target_analysis: str,
+    question: str
+) -> Dict[str, str]:
+    """
+    Generate a challenging question from one perspective to another.
+
+    Args:
+        perspective_name: Name of the challenging perspective
+        target_perspective_name: Name of the perspective being challenged
+        own_analysis: The challenger's own argument
+        target_analysis: The target's argument to critique
+        question: Original ethical question
+
+    Returns:
+        Dict with target_perspective and challenge question
+    """
+    logger.info(f"{perspective_name} generating challenge to {target_perspective_name}")
+
+    system_prompt = f"""You are the {perspective_name} agent who has already analyzed this question: "{question}"
+
+Your task: Read the {target_perspective_name} agent's argument below and identify its SINGLE WEAKEST logical point.
+
+Then pose ONE challenging question that exposes this weakness. Be specific and cite their exact claims.
+
+Your challenge should:
+- Target a logical gap, unsupported assumption, or internal contradiction
+- Be phrased as a direct question
+- Reference specific parts of their argument
+- Stay true to {perspective_name} reasoning (don't abandon your framework)
+
+Keep your challenge to 2-3 sentences maximum.
+
+{target_perspective_name} Agent's Argument:
+{target_analysis}"""
+
+    try:
+        message = await client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=300,
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": f"Identify the weakest point in the {target_perspective_name} argument and pose one challenging question."}
+            ],
+            timeout=API_TIMEOUT
+        )
+
+        challenge = message.content[0].text if message.content else "Unable to generate challenge"
+        logger.info(f"{perspective_name} challenge to {target_perspective_name} generated")
+
+        return {
+            "target_perspective": target_perspective_name,
+            "question": challenge
+        }
+    except Exception as e:
+        logger.error(f"Error generating challenge from {perspective_name} to {target_perspective_name}: {str(e)}")
+        return {
+            "target_perspective": target_perspective_name,
+            "question": "Challenge generation failed"
+        }
+
+
+async def generate_defense(
+    perspective_name: str,
+    own_analysis: str,
+    questions_received: List[Dict[str, str]],
+    question: str
+) -> List[Dict[str, str]]:
+    """
+    Generate defenses against challenges from other perspectives.
+
+    Args:
+        perspective_name: Name of the defending perspective
+        own_analysis: The defender's original argument
+        questions_received: List of challenges (each with 'from_perspective' and 'question')
+        question: Original ethical question
+
+    Returns:
+        List of defenses (each with 'against_perspective' and 'response')
+    """
+    logger.info(f"{perspective_name} generating defenses against {len(questions_received)} challenges")
+
+    # Format the challenges
+    challenges_text = "\n\n".join([
+        f"Challenge from {q['from_perspective']}:\n{q['question']}"
+        for q in questions_received
+    ])
+
+    system_prompt = f"""You are the {perspective_name} agent defending your original position.
+
+Your original argument for: "{question}"
+{own_analysis}
+
+You have received these challenges from other frameworks:
+{challenges_text}
+
+Your task: Address each challenge directly and defend your position.
+
+For each challenge:
+- Acknowledge if they've identified a legitimate limitation
+- Strengthen your argument where challenged
+- Explain why your framework's approach is still valid despite the critique
+- Stay true to {perspective_name} reasoning
+
+Keep each defense to 2-3 sentences. Be intellectually honest."""
+
+    try:
+        message = await client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=500,
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": f"Defend your {perspective_name} position against each of the {len(questions_received)} challenges."}
+            ],
+            timeout=API_TIMEOUT
+        )
+
+        # Parse the response into individual defenses
+        full_response = message.content[0].text if message.content else ""
+
+        # Create defenses - one per challenge received
+        defenses = []
+        for q in questions_received:
+            defenses.append({
+                "against_perspective": q['from_perspective'],
+                "response": full_response  # Simplified: return full response for now
+            })
+
+        logger.info(f"{perspective_name} defenses generated")
+        return defenses
+
+    except Exception as e:
+        logger.error(f"Error generating defenses for {perspective_name}: {str(e)}")
+        return [
+            {
+                "against_perspective": q['from_perspective'],
+                "response": "Defense generation failed"
+            }
+            for q in questions_received
+        ]
+
+
+async def cross_examine(question: str, initial_analyses: List[Dict[str, str]]) -> List[Dict[str, any]]:
+    """
+    Orchestrate cross-examination: agents challenge each other, then defend their positions.
+
+    Args:
+        question: The original ethical question
+        initial_analyses: List of initial perspective analyses from Round 1
+
+    Returns:
+        List of cross-examination results with challenges and defenses for each perspective
+    """
+    logger.info("Starting cross-examination orchestration")
+
+    try:
+        # ROUND 2: Generate challenges (each agent challenges the other 3)
+        logger.info("Round 2: Generating challenges")
+
+        challenge_tasks = []
+        for analyzer in initial_analyses:
+            if analyzer['status'] != 'success':
+                continue
+
+            perspective_name = analyzer['perspective']
+            own_analysis = analyzer['analysis']
+
+            # Challenge each other perspective
+            for target in initial_analyses:
+                if target['perspective'] != perspective_name and target['status'] == 'success':
+                    challenge_tasks.append(
+                        generate_challenge(
+                            perspective_name,
+                            target['perspective'],
+                            own_analysis,
+                            target['analysis'],
+                            question
+                        )
+                    )
+
+        # Execute all challenges in parallel
+        challenge_results = await asyncio.wait_for(
+            asyncio.gather(*challenge_tasks, return_exceptions=True),
+            timeout=30
+        )
+
+        # Organize challenges by source perspective
+        challenges_by_perspective = {}
+        task_idx = 0
+        for analyzer in initial_analyses:
+            if analyzer['status'] != 'success':
+                challenges_by_perspective[analyzer['perspective']] = []
+                continue
+
+            perspective_name = analyzer['perspective']
+            num_challenges = len([a for a in initial_analyses if a['perspective'] != perspective_name and a['status'] == 'success'])
+
+            perspective_challenges = []
+            for i in range(num_challenges):
+                if task_idx < len(challenge_results) and not isinstance(challenge_results[task_idx], Exception):
+                    perspective_challenges.append(challenge_results[task_idx])
+                task_idx += 1
+
+            challenges_by_perspective[perspective_name] = perspective_challenges
+
+        logger.info(f"Round 2 completed: {len(challenge_results)} challenges generated")
+
+        # ROUND 3: Generate defenses (each agent responds to challenges directed at them)
+        logger.info("Round 3: Generating defenses")
+
+        # Organize questions received by each perspective
+        questions_by_target = {a['perspective']: [] for a in initial_analyses}
+        for source_perspective, challenges in challenges_by_perspective.items():
+            for challenge in challenges:
+                questions_by_target[challenge['target_perspective']].append({
+                    'from_perspective': source_perspective,
+                    'question': challenge['question']
+                })
+
+        # Generate defenses in parallel
+        defense_tasks = []
+        for analyzer in initial_analyses:
+            if analyzer['status'] != 'success':
+                continue
+
+            perspective_name = analyzer['perspective']
+            questions = questions_by_target.get(perspective_name, [])
+
+            if questions:  # Only generate defense if there are questions
+                defense_tasks.append(
+                    generate_defense(
+                        perspective_name,
+                        analyzer['analysis'],
+                        questions,
+                        question
+                    )
+                )
+            else:
+                defense_tasks.append(asyncio.sleep(0))  # Placeholder
+
+        defense_results = await asyncio.wait_for(
+            asyncio.gather(*defense_tasks, return_exceptions=True),
+            timeout=30
+        )
+
+        logger.info(f"Round 3 completed: defenses generated")
+
+        # Combine results
+        cross_exam_results = []
+        defense_idx = 0
+        for analyzer in initial_analyses:
+            perspective_name = analyzer['perspective']
+
+            result = {
+                "perspective": perspective_name,
+                "challenges": challenges_by_perspective.get(perspective_name, []),
+                "defenses": [],
+                "status": analyzer['status']
+            }
+
+            if analyzer['status'] == 'success' and defense_idx < len(defense_results):
+                if not isinstance(defense_results[defense_idx], Exception) and defense_results[defense_idx] != None:
+                    result['defenses'] = defense_results[defense_idx] if isinstance(defense_results[defense_idx], list) else []
+                defense_idx += 1
+
+            cross_exam_results.append(result)
+
+        logger.info("Cross-examination orchestration completed")
+        return cross_exam_results
+
+    except asyncio.TimeoutError:
+        logger.error("Cross-examination timed out")
+        raise ValueError("Cross-examination took too long. Please try again.")
+    except Exception as e:
+        logger.error(f"Cross-examination error: {str(e)}", exc_info=True)
+        raise ValueError("An error occurred during cross-examination.")

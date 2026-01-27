@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from agents import analyze_question
+from agents import analyze_question, cross_examine
 from config import ALLOWED_ORIGINS, ENV
 import uvicorn
 
@@ -38,6 +38,37 @@ class PerspectiveResponse(BaseModel):
 class AnalysisResponse(BaseModel):
     """Response model for the analysis endpoint."""
     perspectives: list[PerspectiveResponse]
+
+
+class CrossExamRequest(BaseModel):
+    """Request model for cross-examination."""
+    question: str = Field(..., min_length=1, description="The original ethical question")
+    initial_analyses: list[dict] = Field(..., description="Initial analyses from Round 1")
+
+
+class ChallengeResponse(BaseModel):
+    """Response model for a challenge."""
+    target_perspective: str
+    question: str
+
+
+class DefenseResponse(BaseModel):
+    """Response model for a defense."""
+    against_perspective: str
+    response: str
+
+
+class CrossExamPerspectiveResponse(BaseModel):
+    """Response model for a single perspective's cross-examination."""
+    perspective: str
+    challenges: list[ChallengeResponse]
+    defenses: list[DefenseResponse]
+    status: str
+
+
+class CrossExamResponse(BaseModel):
+    """Response model for the cross-examination endpoint."""
+    perspectives: list[CrossExamPerspectiveResponse]
 
 
 @app.get("/")
@@ -83,6 +114,39 @@ async def analyze(request: QuestionRequest):
         raise HTTPException(
             status_code=500,
             detail="An error occurred while analyzing the question. Please try again."
+        )
+
+
+@app.post("/cross-examine", response_model=CrossExamResponse)
+async def cross_examination(request: CrossExamRequest):
+    """
+    Conduct cross-examination between perspectives.
+
+    Round 2: Each perspective challenges the other 3
+    Round 3: Each perspective defends against challenges
+
+    Returns challenges and defenses for each perspective.
+    """
+    logger.info(f"Cross-examination requested for question: {request.question[:100]}...")
+
+    try:
+        cross_exam_results = await cross_examine(request.question, request.initial_analyses)
+
+        logger.info(f"Cross-examination completed with {len(cross_exam_results)} perspectives")
+
+        return CrossExamResponse(
+            perspectives=[
+                CrossExamPerspectiveResponse(**result) for result in cross_exam_results
+            ]
+        )
+    except ValueError as e:
+        logger.warning(f"Cross-examination validation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error during cross-examination: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred during cross-examination. Please try again."
         )
 
 

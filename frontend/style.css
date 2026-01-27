@@ -267,6 +267,144 @@ header h1 {
     font-size: 0.9rem;
 }
 
+/* Cross-Examination Styles */
+
+.cross-exam-button-container {
+    text-align: center;
+    margin: 40px auto;
+    max-width: 600px;
+}
+
+.cross-exam-btn {
+    background: #2a2a2a;
+    color: white;
+    border: 2px solid #4a4a4a;
+    padding: 16px 32px;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 0;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.cross-exam-btn:hover:not(:disabled) {
+    background: #3a3a3a;
+    border-color: #5a5a5a;
+}
+
+.cross-exam-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.cross-exam-description {
+    margin-top: 12px;
+    color: #666;
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+.cross-exam-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 2px solid #e0e0e0;
+}
+
+.cross-exam-subsection {
+    margin-bottom: 16px;
+}
+
+.cross-exam-header {
+    background: #f5f5f5;
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #ddd;
+    transition: background 0.2s ease;
+}
+
+.cross-exam-header:hover {
+    background: #ebebeb;
+}
+
+.cross-exam-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #2a2a2a;
+}
+
+.expand-icon {
+    color: #666;
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+}
+
+.cross-exam-content {
+    border: 1px solid #ddd;
+    border-top: none;
+    padding: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.cross-exam-content.collapsed {
+    max-height: 0;
+    padding: 0 16px;
+}
+
+.cross-exam-content.expanded {
+    max-height: 2000px;
+    padding: 16px;
+}
+
+.challenge-item,
+.defense-item {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #eee;
+}
+
+.challenge-item:last-child,
+.defense-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.challenge-target,
+.defense-against {
+    font-weight: 600;
+    color: #444;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.challenge-question,
+.defense-response {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #333;
+}
+
+.challenge-question p,
+.defense-response p {
+    margin: 8px 0;
+}
+
+.challenge-question p:first-child,
+.defense-response p:first-child {
+    margin-top: 0;
+}
+
+.challenge-question p:last-child,
+.defense-response p:last-child {
+    margin-bottom: 0;
+}
+
 /* Tablet: 2x2 grid */
 @media (max-width: 1400px) {
     .results-container {
