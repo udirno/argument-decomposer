@@ -88,6 +88,12 @@ function hideError() {
 
 function clearResults() {
     resultsContainer.innerHTML = '';
+
+    // Remove cross-examination button if it exists
+    const crossExamBtnContainer = document.getElementById('crossExamBtnContainer');
+    if (crossExamBtnContainer) {
+        crossExamBtnContainer.remove();
+    }
 }
 
 function displayResults(perspectives) {
