@@ -6,7 +6,7 @@
 
 **Terminal 1 - Backend (MUST RUN FIRST):**
 ```bash
-cd /Users/udirno/Desktop/website/portfolio/argument-explorer/backend
+cd backend
 source venv/bin/activate
 export ANTHROPIC_API_KEY=your_anthropic_api_key_here
 uvicorn main:app --reload --port 8000
@@ -16,7 +16,7 @@ Wait for: `INFO: Uvicorn running on http://0.0.0.0:8000`
 
 **Terminal 2 - Frontend:**
 ```bash
-cd /Users/udirno/Desktop/website/portfolio/argument-explorer/frontend
+cd frontend
 python3 -m http.server 8080
 ```
 
